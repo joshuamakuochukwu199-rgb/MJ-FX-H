@@ -1,0 +1,139 @@
+import streamlit as st
+import os
+from PIL import Image
+from google import genai
+
+# Configure MJFX Web App Page Layout and Styling
+st.set_page_config(
+    page_title="MJFX - Advanced SMC Analyst Bot",
+    page_icon="📈",
+    layout="wide"
+)
+
+# Custom CSS to brand the app as 'MJFX'
+st.markdown("""
+    <style>
+    .main {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+    h1, h2, h3 {
+        color: #00ffcc !important;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+    .stButton>button {
+        background-color: #00ffcc;
+        color: #0e1117;
+        font-weight: bold;
+        border-radius: 8px;
+        border: none;
+        padding: 10px 24px;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        background-color: #00b38f;
+        color: white;
+    }
+    .sidebar .sidebar-content {
+        background-color: #161b22;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Sidebar Information & Settings
+st.sidebar.image("https://img.icons8.com/nolan/128/bullish.png", width=80)
+st.sidebar.title("MJFX Trading Bot")
+st.sidebar.write("Advanced Smart Money Concepts (SMC) & Multi-Timeframe Technical Analysis Engine.")
+
+# Input field for API Key
+api_key = st.sidebar.text_input("Enter Gemini API Key:", type="password")
+if not api_key:
+    st.sidebar.warning("⚠️ API Key required to run the AI engine.")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Technical Analysis Targets")
+include_macd = st.sidebar.checkbox("Include MACD Analysis", value=True)
+include_vol = st.sidebar.checkbox("Include Volume Profile", value=True)
+include_fvg = st.sidebar.checkbox("Include FVG / Liquidity Sweep", value=True)
+
+# Main Layout Headers
+st.title("📈 MJFX - AI Smart Money Concepts (SMC) Analyst")
+st.write("Upload up to **5 chart screenshots** simultaneously to analyze Market Structure, Order Blocks, Liquidity Sweeps, and obtain precise trade execution targets.")
+
+# File Uploader for Screenshots
+uploaded_files = st.file_uploader(
+    "Drag and drop up to 5 chart screenshots here...",
+    type=["png", "jpg", "jpeg"],
+    accept_multiple_files=True
+)
+
+# Keep track of uploaded images
+images = []
+if uploaded_files:
+    if len(uploaded_files) > 5:
+        st.error("❌ Please limit your uploads to a maximum of 5 screenshots at once.")
+    else:
+        cols = st.columns(len(uploaded_files))
+        for idx, file in enumerate(uploaded_files):
+            img = Image.open(file)
+            images.append(img)
+            with cols[idx]:
+                st.image(img, caption=f"Chart {idx+1}", use_container_width=True)
+
+# Prompt template configured to auto-discover Market and Timeframe visually
+smc_prompt = f"""
+You are an expert financial market analyst representing 'MJFX', an elite trading engine specializing in Smart Money Concepts (SMC) and advanced technical analysis across all timeframes.
+
+Analyze the provided chart screenshots carefully. Conduct a detailed multi-timeframe analysis and look for the following concepts:
+0. AUTOMATIC DISCOVERY: First, inspect the screenshot visuals (text, watermarks, tickers, axis labels) to automatically identify and report the Market/Asset Name (e.g., EUR/USD, BTC/USDT, Gold) and the Chart Timeframe (e.g., 5m, 15m, 1H, 4H, Daily).
+1. Market Structure: Break of Structure (BOS), Change of Character (CHoCH), Higher Highs (HH), Lower Lows (LL), Higher Lows (HL), Lower Highs (LH).
+2. Supply & Demand / Order Blocks: Unmitigated Order Blocks (OB), Decisionary OBs, and Extreme OBs.
+3. Imbalances: Fair Value Gaps (FVG) or Liquidity Voids (Include FVG: {include_fvg}).
+4. Liquidity: Liquidity Sweeps (Buy-side/Sell-side liquidity, Equal Highs/Lows), and inducement areas (Include Sweep: {include_fvg}).
+5. Indicators & Volume: MACD patterns (Include MACD: {include_macd}), Support and Resistance zones, and Volume Profile signals (Include Volume: {include_vol}).
+
+Based on your analysis, provide a structured trading signal response with the following sections:
+
+### 1. MJFX Automatic Market & Timeframe Detection
+- **Detected Market/Asset**: (Identify ticker name from chart visual attributes)
+- **Detected Chart Timeframe**: (Identify timeframe like M15, H1, H4, D1 from chart visuals)
+
+### 2. MJFX Chart Analysis Findings
+- **Market Bias/Trend**: (Bullish / Bearish / Ranging)
+- **Key Zones Identified**: (Describe relevant Order Blocks, FVGs, and Liquidity Pools observed in the screenshots)
+- **Technical Indicators**: (Observations from MACD, Support & Resistance, and Volume Profile if visible)
+
+### 3. Suggested MJFX Trade Setup
+- **Direction**: (BUY / SELL / WAIT)
+- **Entry Price / Zone**: (Specific level or range)
+- **Stop Loss (SL)**: (Invalidation level based on structure)
+- **Take Profit 1 (TP1)**: (Conservative target)
+- **Take Profit 2 (TP2)**: (Extended target based on next liquidity level)
+
+### 4. Execution Strategy & Expected Timing
+- **Trigger Conditions**: (What needs to happen before entering, e.g., waiting for a sweep or a lower timeframe CHoCH at the entry zone)
+- **Expected Timeframe**: (Estimated time window or market session to expect this setup to play out)
+"""
+
+# Run Analysis button
+if st.button("⚡ Run MJFX Analysis"):
+    if not api_key:
+        st.error("❌ Please provide a valid Gemini API Key in the sidebar to proceed.")
+    elif not images:
+        st.error("❌ Please upload at least 1 chart screenshot.")
+    else:
+        with st.spinner("MJFX AI Engine analyzing your charts... This may take a moment."):
+            try:
+                client = genai.Client(api_key=api_key)
+                contents = images + [smc_prompt]
+
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=contents
+                )
+
+                st.success("✅ Analysis Completed Successfully!")
+                st.markdown("--- ")
+                st.markdown(response.text)
+            except Exception as e:
+                st.error(f"An error occurred during analysis: {e}")
